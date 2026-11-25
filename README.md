@@ -137,11 +137,11 @@ sequenceDiagram
     Client->>Controller: POST /transfers {"from": 10, "to": 20, "amount": 500}
     Controller->>Service: transfer(request)
     Note over Service,DB: BEGIN TRANSACTION (Isolation: READ_COMMITTED)
-    Service->>DB: SELECT * FROM accounts WHERE id = 10 FOR UPDATE; (min ID)
-    Service->>DB: SELECT * FROM accounts WHERE id = 20 FOR UPDATE; (max ID)
+    Service->>DB: SELECT * FROM accounts WHERE id = 10 FOR UPDATE (min ID)
+    Service->>DB: SELECT * FROM accounts WHERE id = 20 FOR UPDATE (max ID)
     Service->>Service: Проверка баланса счета 10 (balance >= 500)
-    Service->>DB: UPDATE accounts SET balance = balance - 500 WHERE id = 10;
-    Service->>DB: UPDATE accounts SET balance = balance + 500 WHERE id = 20;
+    Service->>DB: UPDATE accounts SET balance = balance - 500 WHERE id = 10
+    Service->>DB: UPDATE accounts SET balance = balance + 500 WHERE id = 20
     Service->>DB: INSERT INTO transactions (source=10, target=20, amount=500, type='TRANSFER')
     Note over Service,DB: COMMIT TRANSACTION
     Service-->>Controller: TransactionResponse
@@ -263,10 +263,12 @@ curl -X POST http://localhost:8080/accounts/10/withdraw \
 
 ### 5. Атомарный перевод средств (Transfer) — Главная фича!
 - **URL**: `POST /transfers`
+- **Опциональный заголовок** `Idempotency-Key` принимает непустой ключ длиной до 255 символов. Для каждого нового перевода используйте новый ключ, например UUID. При повторе запроса после таймаута отправьте тот же ключ и те же реквизиты.
 - **Request**:
 ```bash
 curl -X POST http://localhost:8080/transfers \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 6e0d823d-7c89-43e4-8927-c2d466ec036b" \
   -d '{
     "from": 10,
     "to": 20,
@@ -286,6 +288,8 @@ curl -X POST http://localhost:8080/transfers \
   "failureReason": null
 }
 ```
+
+Повторите команду с тем же ключом: сервис вернёт `201 Created` и тот же перевод, в том числе при параллельных запросах. Изменение суммы или любого из счетов при том же ключе вернёт `409 Conflict`. Если перевод завершится ошибкой, резервирование ключа откатится вместе с транзакцией. Без заголовка каждый запрос создаёт отдельный перевод при успешном выполнении.
 
 ---
 
@@ -366,7 +370,7 @@ docker compose down
 
 ## 🧪 Тестирование
 
-Набор тестов включает **28 автоматических тестов**:
+Набор тестов включает **31 автоматический тест**:
 
 1. **Unit-тесты (JUnit 5 & Mockito)**:
    - `AccountTest` — проверка инвариантов бизнес-логики счета (депозит, списание, отрицательные суммы, недостаточность средств).
@@ -375,12 +379,15 @@ docker compose down
 2. **Интеграционные тесты (Testcontainers + реальный PostgreSQL)**:
    - `AccountControllerIntegrationTest` — сквозные E2E тесты всех эндпоинтов REST API через `TestRestTemplate`.
    - `TransferConcurrencyIntegrationTest` — параллельный стресс-тест в 8 потоках с 20 одновременными встречными переводами между счетами (проверка отсутствия дедлоков и строгого сохранения суммарного баланса).
+   - `TransferIdempotencyIntegrationTest` — проверка одного списания при параллельном повторе, ответа `409` при изменении суммы и отката ключа после ошибки.
 
 Запуск тестов:
 ```cmd
 gradlew.bat test
 ```
 *(Testcontainers автоматически поднимает изолированный контейнер PostgreSQL и прогоняет миграции Flyway).*
+
+GitHub Actions собирает проект и запускает все тесты при пуше в `main` и в pull request с целевой веткой `main`. HTML-отчёт доступен в артефакте `test-report` на странице запуска, в том числе при падении тестов.
 
 ---
 
@@ -395,18 +402,3 @@ gradlew.bat test
 | `SERVER_PORT` | `8080` | Порт Spring Boot приложения |
 
 ---
-
-## 📦 Инициализация Git
-
-Для инициализации локального Git-репозитория и отправки в GitHub:
-
-```bash
-git init
-git add .
-git commit -m "feat: complete banking backend implementation with Spring Boot 3 and Java 21"
-git branch -M main
-# Подключение удаленного репозитория GitHub:
-# git remote add origin https://github.com/<username>/<repo>.git
-# git push -u origin main
-```
-*(Файл `.gitignore` уже настроен и исключает временные файлы Gradle, логи и конфигурации IDE).*
