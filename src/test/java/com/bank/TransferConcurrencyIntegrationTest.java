@@ -4,6 +4,7 @@ import com.bank.dto.AccountResponse;
 import com.bank.dto.CreateAccountRequest;
 import com.bank.dto.TransferRequest;
 import com.bank.service.TransferService;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TransferConcurrencyIntegrationTest extends BaseIntegrationTest {
 
@@ -33,7 +35,9 @@ class TransferConcurrencyIntegrationTest extends BaseIntegrationTest {
         AccountResponse accB = restTemplate.postForEntity("/accounts",
                 new CreateAccountRequest(2L, initialBalance, "RUB"), AccountResponse.class).getBody();
 
+        Assertions.assertNotNull(accA);
         Long idA = accA.id();
+        Assertions.assertNotNull(accB);
         Long idB = accB.id();
 
         int totalOperations = 20;
@@ -81,7 +85,7 @@ class TransferConcurrencyIntegrationTest extends BaseIntegrationTest {
         boolean completed = finishLatch.await(30, TimeUnit.SECONDS);
         executor.shutdown();
 
-        assertEquals(true, completed, "All concurrent transfers should complete within timeout");
+        assertTrue(completed, "All concurrent transfers should complete within timeout");
         assertEquals(totalOperations, successCount.get(), "All transfers must succeed without deadlocks");
         assertEquals(0, failureCount.get(), "There should be zero failed transfers");
 
@@ -90,6 +94,8 @@ class TransferConcurrencyIntegrationTest extends BaseIntegrationTest {
         AccountResponse finalB = restTemplate.getForEntity("/accounts/" + idB, AccountResponse.class).getBody();
 
         BigDecimal expectedTotal = initialBalance.multiply(BigDecimal.valueOf(2));
+        Assertions.assertNotNull(finalA);
+        Assertions.assertNotNull(finalB);
         BigDecimal actualTotal = finalA.balance().add(finalB.balance());
 
         assertEquals(0, expectedTotal.compareTo(actualTotal),

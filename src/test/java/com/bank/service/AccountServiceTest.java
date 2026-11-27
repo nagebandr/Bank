@@ -26,6 +26,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.util.ReflectionTestUtils.setField;
 
 @ExtendWith(MockitoExtension.class)
 class AccountServiceTest {
@@ -71,7 +72,7 @@ class AccountServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> {
             Account a = invocation.getArgument(0);
-            a.setId(10L);
+            setField(a, "id", 10L);
             return a;
         });
 

@@ -17,9 +17,27 @@ class AccountTest {
     void setUp() {
         account = Account.builder()
                 .id(1L)
+                .user(User.builder().name("Alice").email("alice@example.com").build())
                 .balance(new BigDecimal("100.00"))
                 .currency("RUB")
                 .build();
+    }
+
+    @Test
+    void builder_omittedBalanceAndCurrencyUseDefaults() {
+        Account newAccount = Account.builder().user(account.getUser()).build();
+
+        assertEquals(BigDecimal.ZERO, newAccount.getBalance());
+        assertEquals("RUB", newAccount.getCurrency());
+    }
+
+    @Test
+    void builder_rejectsMissingOwnerAndExplicitNulls() {
+        assertThrows(NullPointerException.class, () -> Account.builder().build());
+        assertThrows(NullPointerException.class,
+                () -> Account.builder().user(account.getUser()).balance(null).build());
+        assertThrows(NullPointerException.class,
+                () -> Account.builder().user(account.getUser()).currency(null).build());
     }
 
     @Test

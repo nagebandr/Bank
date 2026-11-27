@@ -10,9 +10,8 @@ import java.time.Instant;
 @Entity
 @Table(name = "accounts")
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
 public class Account {
 
@@ -22,13 +21,17 @@ public class Account {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
+    @NonNull
     private User user;
 
     @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal balance;
+    @Builder.Default
+    @NonNull
+    private BigDecimal balance = BigDecimal.ZERO;
 
     @Column(nullable = false, length = 3)
     @Builder.Default
+    @NonNull
     private String currency = "RUB";
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -38,15 +41,9 @@ public class Account {
     private Long version;
 
     @PrePersist
-    public void prePersist() {
+    private void prePersist() {
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
-        }
-        if (this.balance == null) {
-            this.balance = BigDecimal.ZERO;
-        }
-        if (this.currency == null) {
-            this.currency = "RUB";
         }
     }
 

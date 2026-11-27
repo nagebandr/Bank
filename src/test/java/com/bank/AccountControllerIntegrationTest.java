@@ -1,6 +1,7 @@
 package com.bank;
 
 import com.bank.dto.*;
+import com.bank.entity.TransactionType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,7 @@ class AccountControllerIntegrationTest extends BaseIntegrationTest {
         // Create account
         CreateAccountRequest createReq = new CreateAccountRequest(1L, new BigDecimal("100.00"), "RUB");
         ResponseEntity<AccountResponse> created = restTemplate.postForEntity("/accounts", createReq, AccountResponse.class);
+        assertNotNull(created.getBody());
         Long accountId = created.getBody().id();
 
         // Deposit
@@ -75,6 +77,7 @@ class AccountControllerIntegrationTest extends BaseIntegrationTest {
         // Create account
         CreateAccountRequest createReq = new CreateAccountRequest(1L, new BigDecimal("200.00"), "RUB");
         ResponseEntity<AccountResponse> created = restTemplate.postForEntity("/accounts", createReq, AccountResponse.class);
+        assertNotNull(created.getBody());
         Long accountId = created.getBody().id();
 
         // Withdraw
@@ -93,6 +96,7 @@ class AccountControllerIntegrationTest extends BaseIntegrationTest {
         // Create account with 10.00
         CreateAccountRequest createReq = new CreateAccountRequest(1L, new BigDecimal("10.00"), "RUB");
         ResponseEntity<AccountResponse> created = restTemplate.postForEntity("/accounts", createReq, AccountResponse.class);
+        assertNotNull(created.getBody());
         Long accountId = created.getBody().id();
 
         // Attempt withdrawal of 100.00
@@ -116,21 +120,26 @@ class AccountControllerIntegrationTest extends BaseIntegrationTest {
         AccountResponse dst = restTemplate.postForEntity("/accounts",
                 new CreateAccountRequest(2L, new BigDecimal("200.00"), "RUB"), AccountResponse.class).getBody();
 
+        assertNotNull(src);
+        assertNotNull(dst);
         TransferRequest transferReq = new TransferRequest(src.id(), dst.id(), new BigDecimal("500.00"));
         ResponseEntity<TransactionResponse> response = restTemplate.postForEntity("/transfers", transferReq, TransactionResponse.class);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(response.getBody());
+        assertNotNull(response.getBody().id());
         assertEquals(src.id(), response.getBody().sourceAccountId());
         assertEquals(dst.id(), response.getBody().targetAccountId());
         assertEquals(0, new BigDecimal("500.0000").compareTo(response.getBody().amount()));
 
         // Check source balance is now 500
         AccountResponse updatedSrc = restTemplate.getForEntity("/accounts/" + src.id(), AccountResponse.class).getBody();
+        assertNotNull(updatedSrc);
         assertEquals(0, new BigDecimal("500.0000").compareTo(updatedSrc.balance()));
 
         // Check target balance is now 700
         AccountResponse updatedDst = restTemplate.getForEntity("/accounts/" + dst.id(), AccountResponse.class).getBody();
+        assertNotNull(updatedDst);
         assertEquals(0, new BigDecimal("700.0000").compareTo(updatedDst.balance()));
 
         // Check transactions history
@@ -141,6 +150,8 @@ class AccountControllerIntegrationTest extends BaseIntegrationTest {
                 new ParameterizedTypeReference<>() {}
         );
         assertEquals(HttpStatus.OK, txHistory.getStatusCode());
-        assertFalse(txHistory.getBody().isEmpty());
+        assertNotNull(txHistory.getBody());
+        assertTrue(txHistory.getBody().stream().anyMatch(transaction ->
+                response.getBody().id().equals(transaction.id()) && transaction.type() == TransactionType.TRANSFER));
     }
 }

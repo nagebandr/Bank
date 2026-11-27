@@ -9,9 +9,8 @@ import java.time.Instant;
 @Entity
 @Table(name = "transactions")
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
 public class Transaction {
 
@@ -28,14 +27,17 @@ public class Transaction {
     private Account targetAccount;
 
     @Column(nullable = false, precision = 19, scale = 4)
+    @NonNull
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
+    @NonNull
     private TransactionType type;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
+    @NonNull
     private TransactionStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -45,7 +47,7 @@ public class Transaction {
     private String failureReason;
 
     @PrePersist
-    public void prePersist() {
+    private void prePersist() {
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
         }

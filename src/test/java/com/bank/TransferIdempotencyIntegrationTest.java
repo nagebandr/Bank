@@ -63,9 +63,10 @@ class TransferIdempotencyIntegrationTest extends BaseIntegrationTest {
     @Test
     void sameKeyWithDifferentAmountReturnsConflictEvenWhenAmountsRoundToSameValue() {
         String key = UUID.randomUUID().toString();
-        requireCreated(transfer(key, "25.0000", TransactionResponse.class));
+        TransactionResponse original = requireCreated(transfer(key, "25.00001", TransactionResponse.class));
+        assertEquals(original, requireCreated(transfer(key, "25.000010", TransactionResponse.class)));
 
-        ResponseEntity<ErrorResponse> conflict = transfer(key, "25.00001", ErrorResponse.class);
+        ResponseEntity<ErrorResponse> conflict = transfer(key, "25.0000", ErrorResponse.class);
         assertEquals(HttpStatus.CONFLICT, conflict.getStatusCode());
 
         assertSingleTransfer();

@@ -8,9 +8,8 @@ import java.time.Instant;
 @Entity
 @Table(name = "users")
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
 public class User {
 
@@ -19,16 +18,18 @@ public class User {
     private Long id;
 
     @Column(nullable = false)
+    @NonNull
     private String name;
 
     @Column(nullable = false, unique = true)
+    @NonNull
     private String email;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @PrePersist
-    public void prePersist() {
+    private void prePersist() {
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
         }

@@ -51,13 +51,14 @@ public class TransferService {
         }
 
         // A conflicting insert waits for the transaction that first reserved the key.
-        if (!idempotencyRepository.reserve(idempotencyKey, request)) {
+        int inserted = idempotencyRepository.reserve(idempotencyKey, request.from(), request.to(), request.amount());
+        if (inserted == 0) {
             // At READ COMMITTED, this separate statement sees the committed result.
-            var saved = idempotencyRepository.findByKey(idempotencyKey);
-            if (!saved.matches(request)) {
+            var saved = idempotencyRepository.findById(idempotencyKey).orElseThrow();
+            if (!saved.matches(request.from(), request.to(), request.amount())) {
                 throw new IdempotencyKeyConflictException();
             }
-            return transactionRepository.findById(saved.transactionId())
+            return transactionRepository.findById(saved.getTransactionId())
                     .map(TransactionResponse::from)
                     .orElseThrow();
         }

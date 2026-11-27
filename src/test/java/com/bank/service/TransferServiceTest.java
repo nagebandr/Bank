@@ -27,6 +27,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.util.ReflectionTestUtils.setField;
 
 @ExtendWith(MockitoExtension.class)
 class TransferServiceTest {
@@ -74,7 +75,7 @@ class TransferServiceTest {
         when(accountRepository.findByIdWithLock(20L)).thenReturn(Optional.of(accountB));
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
             Transaction tx = invocation.getArgument(0);
-            tx.setId(100L);
+            setField(tx, "id", 100L);
             return tx;
         });
 
@@ -116,8 +117,9 @@ class TransferServiceTest {
         assertEquals(0, new BigDecimal("1100.0000").compareTo(accountA.getBalance()));
 
         // Verification order: 10L is locked before 20L
-        inOrder(accountRepository).verify(accountRepository).findByIdWithLock(10L);
-        inOrder(accountRepository).verify(accountRepository).findByIdWithLock(20L);
+        var order = inOrder(accountRepository);
+        order.verify(accountRepository).findByIdWithLock(10L);
+        order.verify(accountRepository).findByIdWithLock(20L);
     }
 
     @Test

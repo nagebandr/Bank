@@ -58,13 +58,14 @@
 
 ## 🏛 Архитектура и модель данных
 
-### ER-диаграмма сущностей:
+### ER-диаграмма базы данных
 
 ```mermaid
 erDiagram
     USERS ||--o{ ACCOUNTS : "владеет"
-    ACCOUNTS ||--o{ TRANSACTIONS : "источник (source)"
-    ACCOUNTS ||--o{ TRANSACTIONS : "получатель (target)"
+    ACCOUNTS |o..o{ TRANSACTIONS : "счёт списания"
+    ACCOUNTS |o..o{ TRANSACTIONS : "счёт зачисления"
+    TRANSACTIONS |o..o| TRANSFER_IDEMPOTENCY_KEYS : "результат запроса"
 
     USERS {
         bigserial id PK
@@ -91,6 +92,14 @@ erDiagram
         varchar status "SUCCESS, FAILED"
         timestamptz created_at
         text failure_reason
+    }
+
+    TRANSFER_IDEMPOTENCY_KEYS {
+        varchar idempotency_key PK
+        bigint source_account_id
+        bigint target_account_id
+        numeric request_amount
+        bigint transaction_id FK, UK
     }
 ```
 
@@ -119,6 +128,12 @@ erDiagram
    - `status`: статус (`SUCCESS`, `FAILED`).
    - `created_at`: метка времени проведения.
    - `failure_reason`: причина ошибки (при сбое).
+
+4. **`transfer_idempotency_keys`** — исходные реквизиты запроса и ссылка на результат.
+   - `idempotency_key` — уникальный ключ запроса на перевод.
+   - `source_account_id` и `target_account_id` — ID счетов из запроса, сохранённые как значения без внешних ключей.
+   - `request_amount` — сумма до округления.
+   - `transaction_id` — уникальная ссылка на операцию. При резервировании ключа поле пустое, а после перевода заполняется в той же транзакции БД. Перевод без ключа не имеет связанной записи в этой таблице.
 
 ---
 
@@ -370,16 +385,19 @@ docker compose down
 
 ## 🧪 Тестирование
 
-Набор тестов включает **31 автоматический тест**:
+Набор тестов включает **45 автоматических тестов**:
 
 1. **Unit-тесты (JUnit 5 & Mockito)**:
    - `AccountTest` — проверка инвариантов бизнес-логики счета (депозит, списание, отрицательные суммы, недостаточность средств).
    - `AccountServiceTest` — изоляция сервисного слоя счетов с моками репозиториев.
    - `TransferServiceTest` — изоляция сервиса переводов, валидация порядка блокировок и обработки граничных случаев.
-2. **Интеграционные тесты (Testcontainers + реальный PostgreSQL)**:
+2. **Тесты HTTP-слоя (MockMvc)**:
+   - `TransferControllerTest` — проверка HTTP-ответов, валидации JSON и передачи `Idempotency-Key` сервису.
+3. **Интеграционные тесты (Testcontainers + реальный PostgreSQL)**:
    - `AccountControllerIntegrationTest` — сквозные E2E тесты всех эндпоинтов REST API через `TestRestTemplate`.
    - `TransferConcurrencyIntegrationTest` — параллельный стресс-тест в 8 потоках с 20 одновременными встречными переводами между счетами (проверка отсутствия дедлоков и строгого сохранения суммарного баланса).
    - `TransferIdempotencyIntegrationTest` — проверка одного списания при параллельном повторе, ответа `409` при изменении суммы и отката ключа после ошибки.
+   - `EntityPersistenceIntegrationTest` — сохранение и чтение `User`, `Transaction` и `TransferIdempotencyKey` через JPA.
 
 Запуск тестов:
 ```cmd
